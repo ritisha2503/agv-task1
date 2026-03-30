@@ -1,0 +1,11 @@
+# Core numerical library
+numpy>=1.21
+
+# OpenCV for computer vision (includes cv2)
+opencv-python>=4.5
+
+# Optional but useful for visualization/debugging
+matplotlib>=3.5
+
+# If you plan to use simulation (as seen in your earlier code)
+pybullet>=3.2
