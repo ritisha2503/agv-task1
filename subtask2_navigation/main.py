@@ -117,9 +117,9 @@ def main():
 
                 # draw flow
                 cv2.line(frame,
-                         (int(old.ravel()[0]), int(old.ravel()[1])),
-                         (int(x), int(y)),
-                         (0, 255, 0), 1)
+                        (int(old.ravel()[0]), int(old.ravel()[1])),
+                        (int(x), int(y)),
+                        (0, 255, 0), 1)
 
             # ==============================
             # UPDATE TRACKING
