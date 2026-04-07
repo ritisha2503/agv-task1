@@ -85,7 +85,7 @@ def draw_flow(frame, mask, old_points, new_points):
 
     return output, mask
 
-video_path = "input_video.mp4"
+video_path = "subtask1_lucas_kanade/input_video.mp4"
 
 cap = cv2.VideoCapture(video_path)
 

@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-video_path = "input_video.mp4"
+video_path = "subtask1_lucas_kanade/input_video.mp4"
 
 cap = cv2.VideoCapture(video_path)
 
