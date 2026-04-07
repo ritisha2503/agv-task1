@@ -10,8 +10,9 @@ The goal of this project is to estimate motion between consecutive frames of a v
 
 Optical flow is a method used to estimate the motion of objects between frames in a video sequence. This project focuses on:
 
-- Dense Optical Flow (Farneback Method)
-- (Optional) Lucas-Kanade Optical Flow
+- Lucas-Kanade Optical Flow
+- (Optional) Dense Optical Flow (Farneback Method)
+- Navigation
 
 The output is visualized as motion overlays on the original video.
 
@@ -40,10 +41,14 @@ The output is visualized as motion overlays on the original video.
 agv-task1/
 │
 ├── subtask1_lucas_kanade/
+│ ├── main.py
 │ ├── dense_optical_flow.py
-│ └── (other scripts)
+│ └── input_video.mp4
 │
-├── input_video.mp4
+├── subtask2_navigation/
+│ ├── main.py
+│ └── simulation_setup.py
+│
 ├── README.md
 └── requirements.txt
 
@@ -59,5 +64,20 @@ cd agv-task1
 2. Install dependencies:
 pip install -r requirements.txt
 
-3. Run the script:
+3. For subtask 1, enter the folder of subtask 1:
+cd subtask1_lucas_kanade
+
+4. Run the script:
+python main.py
+
+5. Also, check the bonus task:
 python dense_optical_flow.py
+
+6. Exit the folder for subtask 1:
+cd ..
+
+7. For subtask 2, enter the folder of subtask 2:
+cd subtask2_navigation
+
+8. Run the scriptL
+python main.py
