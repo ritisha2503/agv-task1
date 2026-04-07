@@ -1,13 +1,14 @@
+import sys
 import cv2
 import numpy as np
 import pybullet as p
 import time
 from simulation_setup import setup_simulation
 
-# --- Constants ---
+# constants
 WIDTH, HEIGHT = 320, 240
 MAX_VELOCITY = 15.0
-STEER_GAIN = 0.003   # reduced for stability
+STEER_GAIN = 0.003
 MIN_FEATURES = 20
 
 LK_PARAMS = dict(winSize=(15, 15), maxLevel=2,
@@ -48,129 +49,121 @@ def get_frame(car_id):
 
     return cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
 
+try:
+    car_id, steer_joints, motor_joints = setup_simulation(gui=True)
+except Exception as e:
+    print(f"Setup failed: {e}")
+    sys.exit()
 
-def main():
+prev_frame = get_frame(car_id)
+prev_gray = cv2.cvtColor(prev_frame, cv2.COLOR_BGR2GRAY)
 
-    try:
-        car_id, steer_joints, motor_joints = setup_simulation(gui=True)
-    except Exception as e:
-        print(f"Setup failed: {e}")
-        return
+p0 = cv2.goodFeaturesToTrack(prev_gray, mask=None, **FEATURE_PARAMS)
 
-    prev_frame = get_frame(car_id)
-    prev_gray = cv2.cvtColor(prev_frame, cv2.COLOR_BGR2GRAY)
+print("Navigation started. Press 'q' to exit.")
 
-    p0 = cv2.goodFeaturesToTrack(prev_gray, mask=None, **FEATURE_PARAMS)
+try:
+    while True:
 
-    print("Navigation started. Press 'q' to exit.")
+        p.stepSimulation()
 
-    try:
-        while True:
+        frame = get_frame(car_id)
+        frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-            p.stepSimulation()
+        steer_val = 0.0
 
-            frame = get_frame(car_id)
-            frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        # ==============================
+        # SAFE FEATURE CHECK
+        # ==============================
+        if p0 is None or len(p0) < MIN_FEATURES:
+            p0 = cv2.goodFeaturesToTrack(frame_gray, mask=None, **FEATURE_PARAMS)
+            prev_gray = frame_gray.copy()
+            continue
 
-            steer_val = 0.0
+        p1, st, err = cv2.calcOpticalFlowPyrLK(
+            prev_gray, frame_gray, p0, None, **LK_PARAMS
+        )
 
-            # ==============================
-            # SAFE FEATURE CHECK
-            # ==============================
-            if p0 is None or len(p0) < MIN_FEATURES:
-                p0 = cv2.goodFeaturesToTrack(frame_gray, mask=None, **FEATURE_PARAMS)
-                prev_gray = frame_gray.copy()
-                continue
+        if p1 is None:
+            p0 = cv2.goodFeaturesToTrack(frame_gray, mask=None, **FEATURE_PARAMS)
+            prev_gray = frame_gray.copy()
+            continue
 
-            p1, st, err = cv2.calcOpticalFlowPyrLK(
-                prev_gray, frame_gray, p0, None, **LK_PARAMS
+        good_new = p1[st == 1]
+        good_old = p0[st == 1]
+
+        if len(good_new) == 0:
+            p0 = cv2.goodFeaturesToTrack(frame_gray, mask=None, **FEATURE_PARAMS)
+            prev_gray = frame_gray.copy()
+            continue
+
+        # ==============================
+        # FLOW-BASED STEERING
+        # ==============================
+        for (new, old) in zip(good_new, good_old):
+
+            x, y = new.ravel()
+            dx = x - old.ravel()[0]
+
+            # weight by closeness (bottom = more important)
+            weight = (y / HEIGHT) ** 2
+
+            if x < WIDTH / 2:
+                steer_val += abs(dx) * weight
+            else:
+                steer_val -= abs(dx) * weight
+
+            # draw flow
+            cv2.line(frame,
+                    (int(old.ravel()[0]), int(old.ravel()[1])),
+                    (int(x), int(y)),
+                    (0, 255, 0), 1)
+
+        # ==============================
+        # UPDATE TRACKING
+        # ==============================
+        if len(good_new) < MIN_FEATURES:
+            p0 = cv2.goodFeaturesToTrack(frame_gray, mask=None, **FEATURE_PARAMS)
+        else:
+            p0 = good_new.reshape(-1, 1, 2)
+
+        # ==============================
+        # CONTROL
+        # ==============================
+        target_steer = np.clip(steer_val * STEER_GAIN, -0.6, 0.6)
+
+        for sj in steer_joints:
+            p.setJointMotorControl2(
+                car_id, sj,
+                p.POSITION_CONTROL,
+                targetPosition=target_steer
             )
 
-            if p1 is None:
-                p0 = cv2.goodFeaturesToTrack(frame_gray, mask=None, **FEATURE_PARAMS)
-                prev_gray = frame_gray.copy()
-                continue
+        for mj in motor_joints:
+            p.setJointMotorControl2(
+                car_id, mj,
+                p.VELOCITY_CONTROL,
+                targetVelocity=MAX_VELOCITY,
+                force=500
+            )
 
-            good_new = p1[st == 1]
-            good_old = p0[st == 1]
+        # ==============================
+        # DISPLAY
+        # ==============================
+        cv2.putText(frame, f"Steer: {target_steer:.2f}", (20, 30),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
 
-            if len(good_new) == 0:
-                p0 = cv2.goodFeaturesToTrack(frame_gray, mask=None, **FEATURE_PARAMS)
-                prev_gray = frame_gray.copy()
-                continue
+        cv2.imshow("Optical Flow Navigation", frame)
 
-            # ==============================
-            # FLOW-BASED STEERING
-            # ==============================
-            for (new, old) in zip(good_new, good_old):
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
 
-                x, y = new.ravel()
-                dx = x - old.ravel()[0]
+        prev_gray = frame_gray.copy()
 
-                # weight by closeness (bottom = more important)
-                weight = (y / HEIGHT) ** 2
+        time.sleep(1./60.)
 
-                if x < WIDTH / 2:
-                    steer_val += abs(dx) * weight
-                else:
-                    steer_val -= abs(dx) * weight
+except Exception as e:
+    print(f"Runtime error: {e}")
 
-                # draw flow
-                cv2.line(frame,
-                        (int(old.ravel()[0]), int(old.ravel()[1])),
-                        (int(x), int(y)),
-                        (0, 255, 0), 1)
-
-            # ==============================
-            # UPDATE TRACKING
-            # ==============================
-            if len(good_new) < MIN_FEATURES:
-                p0 = cv2.goodFeaturesToTrack(frame_gray, mask=None, **FEATURE_PARAMS)
-            else:
-                p0 = good_new.reshape(-1, 1, 2)
-
-            # ==============================
-            # CONTROL
-            # ==============================
-            target_steer = np.clip(steer_val * STEER_GAIN, -0.6, 0.6)
-
-            for sj in steer_joints:
-                p.setJointMotorControl2(
-                    car_id, sj,
-                    p.POSITION_CONTROL,
-                    targetPosition=target_steer
-                )
-
-            for mj in motor_joints:
-                p.setJointMotorControl2(
-                    car_id, mj,
-                    p.VELOCITY_CONTROL,
-                    targetVelocity=MAX_VELOCITY,
-                    force=500
-                )
-
-            # ==============================
-            # DISPLAY
-            # ==============================
-            cv2.putText(frame, f"Steer: {target_steer:.2f}", (20, 30),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-
-            cv2.imshow("Optical Flow Navigation", frame)
-
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
-
-            prev_gray = frame_gray.copy()
-
-            time.sleep(1./60.)
-
-    except Exception as e:
-        print(f"Runtime error: {e}")
-
-    finally:
-        p.disconnect()
-        cv2.destroyAllWindows()
-
-
-if __name__ == "__main__":
-    main()
+p.disconnect()
+cv2.destroyAllWindows()
