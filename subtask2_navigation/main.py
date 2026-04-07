@@ -72,9 +72,7 @@ try:
 
         steer_val = 0.0
 
-        # ==============================
-        # SAFE FEATURE CHECK
-        # ==============================
+        # re-detect if tracking is lost or too few features
         if p0 is None or len(p0) < MIN_FEATURES:
             p0 = cv2.goodFeaturesToTrack(frame_gray, mask=None, **FEATURE_PARAMS)
             prev_gray = frame_gray.copy()
