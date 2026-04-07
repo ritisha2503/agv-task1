@@ -49,7 +49,7 @@ def draw_flow(frame, mask, old_points, new_points):
         magnitude = np.sqrt(dx**2 + dy**2)
 
         # normalize magnitude for coloring
-        mag_norm = min(magnitude / 10, 1.0)
+        mag_norm = min((magnitude / 10)**0.5, 1.0)
 
         # color mapping
         # slow → yellow (0,255,255)
