@@ -95,9 +95,7 @@ try:
             prev_gray = frame_gray.copy()
             continue
 
-        # ==============================
-        # FLOW-BASED STEERING
-        # ==============================
+        # flow-based steering
         for (new, old) in zip(good_new, good_old):
 
             x, y = new.ravel()
@@ -117,17 +115,13 @@ try:
                     (int(x), int(y)),
                     (0, 255, 0), 1)
 
-        # ==============================
-        # UPDATE TRACKING
-        # ==============================
+        # update features
         if len(good_new) < MIN_FEATURES:
             p0 = cv2.goodFeaturesToTrack(frame_gray, mask=None, **FEATURE_PARAMS)
         else:
             p0 = good_new.reshape(-1, 1, 2)
 
-        # ==============================
-        # CONTROL
-        # ==============================
+        # control
         target_steer = np.clip(steer_val * STEER_GAIN, -0.6, 0.6)
 
         for sj in steer_joints:
@@ -145,9 +139,7 @@ try:
                 force=500
             )
 
-        # ==============================
-        # DISPLAY
-        # ==============================
+        # display info
         cv2.putText(frame, f"Steer: {target_steer:.2f}", (20, 30),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
 
